@@ -252,23 +252,83 @@
     return [];
   }
 
+  /** Known non-application hostnames that should never trigger auto-detect */
+  const NON_APP_HOSTS = [
+    'mail.google.com',
+    'calendar.google.com',
+    'docs.google.com',
+    'drive.google.com',
+    'sheets.google.com',
+    'slides.google.com',
+    'meet.google.com',
+    'chat.google.com',
+    'contacts.google.com',
+    'keep.google.com',
+    'photos.google.com',
+    'maps.google.com',
+    'www.google.com',
+    'accounts.google.com',
+    'myaccount.google.com',
+    'translate.google.com',
+    'news.google.com',
+    'www.youtube.com',
+    'music.youtube.com',
+    'studio.youtube.com',
+    'www.facebook.com',
+    'www.instagram.com',
+    'twitter.com',
+    'x.com',
+    'www.reddit.com',
+    'web.whatsapp.com',
+    'www.amazon.com',
+    'www.ebay.com',
+    'www.netflix.com',
+    'www.twitch.tv',
+    'discord.com',
+    'slack.com',
+    'app.slack.com',
+    'outlook.live.com',
+    'outlook.office.com',
+    'outlook.office365.com',
+    'login.microsoftonline.com',
+    'teams.microsoft.com',
+    'github.com',
+    'gitlab.com',
+    'bitbucket.org',
+    'stackoverflow.com',
+    'www.wikipedia.org',
+    'en.wikipedia.org',
+  ];
+
   /** Check if this is likely a job application page */
   function isApplicationPage() {
-    // Check URL
+    // Exclude known non-application sites first
+    const host = location.hostname.toLowerCase();
+    if (NON_APP_HOSTS.includes(host)) return false;
+
+    // Check URL path/query for application-related keywords
     const url = location.href.toLowerCase();
     if (/apply|application|career|job|hire|recruit/i.test(url)) return true;
 
-    // Check form indicators
+    // Check form indicators (specific selectors for known job platforms)
     for (const sel of FORM_INDICATORS) {
       if (document.querySelector(sel)) return true;
     }
 
-    // Check for clusters of form fields
+    // Check for clusters of form fields — but require a higher threshold and
+    // at least one field whose label hints at a job application
     const allFields = document.querySelectorAll(FIELD_SELECTORS.join(','));
     if (allFields.length >= 3) {
-      // If there are ≥3 visible inputs, likely a form
       const visible = Array.from(allFields).filter((el) => el.offsetParent !== null);
-      if (visible.length >= 3) return true;
+      if (visible.length >= 5) {
+        // Also verify at least one label looks job-related
+        const jobLabelPattern = /resum[eé]|cover\s*letter|experience|salary|position|employer|work\s*auth|visa|start\s*date|linkedin|portfolio/i;
+        const hasJobLabel = visible.some((el) => {
+          const label = getFieldLabel(el);
+          return jobLabelPattern.test(label);
+        });
+        if (hasJobLabel) return true;
+      }
     }
 
     return false;
@@ -618,6 +678,12 @@
     }
 
     // ---- TEXT / TEXTAREA / EMAIL / TEL / URL / NUMBER ----
+    // Guard: only set value on elements that actually support .value
+    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA' && el.tagName !== 'SELECT') {
+      console.warn('AutoApply: cannot set value on', el.tagName, 'element for field', field.label);
+      return;
+    }
+
     // Use native setter to trigger React/Angular change detection
     const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype
       : el.tagName === 'SELECT' ? HTMLSelectElement.prototype
@@ -761,12 +827,22 @@
         },
       });
 
+      if (!response) {
+        updateStatus(statusEl, 'No response from extension. Try reloading the page.', 'error');
+        return;
+      }
+
       if (response.error) {
         updateStatus(statusEl, `Error: ${response.error}`, 'error');
         return;
       }
 
       const answers = response.answers;
+      if (!Array.isArray(answers)) {
+        updateStatus(statusEl, 'Unexpected response format from AI.', 'error');
+        return;
+      }
+
       let filled = 0;
 
       for (const ans of answers) {
@@ -812,6 +888,11 @@
           model: data.model || 'gpt-4o-mini',
         },
       });
+
+      if (!response) {
+        updateStatus(statusEl, 'No response from extension. Try reloading the page.', 'error');
+        return;
+      }
 
       if (response.error) {
         updateStatus(statusEl, `Error: ${response.error}`, 'error');
@@ -917,7 +998,10 @@
             },
           });
 
-          if (response.error) {
+          if (!response) {
+            btn.textContent = '✕';
+            console.error('AutoApply: No response from extension.');
+          } else if (response.error) {
             btn.textContent = '✕';
             console.error('AutoApply:', response.error);
           } else {
@@ -935,8 +1019,10 @@
         }, 2000);
       });
 
-      // Insert button after the field
-      el.parentNode.insertBefore(btn, el.nextSibling);
+      // Insert button after the field (guard against detached elements)
+      if (el.parentNode) {
+        el.parentNode.insertBefore(btn, el.nextSibling);
+      }
     }
   }
 
@@ -973,32 +1059,38 @@
   // INIT – Decide whether to show the FAB
   // =========================================================
 
-  async function init() {
-    const data = await chrome.storage.local.get(['autoDetect', 'openaiKey', 'resumeText']);
-
-    // Only activate if settings exist
-    if (!data.openaiKey) return;
-
-    const autoDetect = data.autoDetect !== false; // Default true
-
-    if (autoDetect && isApplicationPage()) {
+  // Register message listener ONCE (outside init to prevent duplicates)
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.action === 'showFAB') {
       createFAB();
-      // Add per-field AI buttons after a short delay (for SPAs)
-      setTimeout(addPerFieldButtons, 1500);
+      addPerFieldButtons();
     }
+  });
 
-    // Also listen for manual trigger from popup
-    chrome.runtime.onMessage.addListener((msg) => {
-      if (msg.action === 'showFAB') {
+  async function init() {
+    try {
+      const data = await chrome.storage.local.get(['autoDetect', 'openaiKey', 'resumeText']);
+
+      // Only activate if settings exist
+      if (!data.openaiKey) return;
+
+      const autoDetect = data.autoDetect !== false; // Default true
+
+      if (autoDetect && isApplicationPage()) {
         createFAB();
-        addPerFieldButtons();
+        // Add per-field AI buttons after a short delay (for SPAs)
+        setTimeout(addPerFieldButtons, 1500);
       }
-    });
+    } catch (err) {
+      // Extension context may have been invalidated (e.g. after update/reload).
+      // Silently ignore – the content script can no longer communicate with the extension.
+      console.debug('AutoApply: init skipped –', err.message);
+    }
   }
 
   // Run after DOM settles
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => init());
   } else {
     init();
   }
@@ -1011,5 +1103,9 @@
       setTimeout(init, 1000);
     }
   });
-  observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+  const observeTarget = document.body || document.documentElement;
+  if (observeTarget) {
+    observer.observe(observeTarget, { childList: true, subtree: true });
+  }
 })();
