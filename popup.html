@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoApply</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <h1>AutoApply</h1>
+      </div>
+      <span class="badge" id="statusBadge">Not configured</span>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="settings">Settings</button>
+      <button class="tab" data-tab="resume">Resume</button>
+      <button class="tab" data-tab="cover">Cover Letter</button>
+    </nav>
+
+    <!-- Settings Tab -->
+    <section class="tab-panel active" id="tab-settings">
+      <div class="field">
+        <label for="apiKey">OpenAI API Key</label>
+        <div class="input-group">
+          <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
+          <button class="icon-btn" id="toggleKeyVisibility" title="Show/Hide">👁</button>
+        </div>
+        <small>Your key is stored locally and never sent anywhere except OpenAI.</small>
+      </div>
+
+      <div class="field">
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect">
+          <option value="gpt-4o-mini">GPT-4o Mini (fast & cheap)</option>
+          <option value="gpt-4o">GPT-4o (best quality)</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (cheapest)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="tone">Response Tone</label>
+        <select id="tone">
+          <option value="professional">Professional</option>
+          <option value="friendly">Friendly & Warm</option>
+          <option value="concise">Concise & Direct</option>
+          <option value="enthusiastic">Enthusiastic</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>
+          <input type="checkbox" id="autoDetect" checked>
+          Auto-detect application forms
+        </label>
+      </div>
+
+      <button class="btn primary" id="saveSettings">Save Settings</button>
+      <div class="toast" id="settingsToast">Settings saved ✓</div>
+    </section>
+
+    <!-- Resume Tab -->
+    <section class="tab-panel" id="tab-resume">
+      <div class="field">
+        <label for="fullName">Full Name</label>
+        <input type="text" id="fullName" placeholder="John Doe">
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="john@example.com">
+      </div>
+      <div class="field">
+        <label for="phone">Phone</label>
+        <input type="tel" id="phone" placeholder="+1 555-123-4567">
+      </div>
+      <div class="field">
+        <label for="location">Location</label>
+        <input type="text" id="location" placeholder="City, State / Country">
+      </div>
+      <div class="field">
+        <label for="linkedin">LinkedIn URL</label>
+        <input type="url" id="linkedin" placeholder="https://linkedin.com/in/...">
+      </div>
+      <div class="field">
+        <label for="portfolio">Portfolio / Website</label>
+        <input type="url" id="portfolio" placeholder="https://...">
+      </div>
+      <div class="field">
+        <label for="resumeText">Full Resume (paste text)</label>
+        <textarea id="resumeText" rows="12" placeholder="Paste the full text of your resume here...&#10;&#10;Include: Summary, Experience, Education, Skills, Projects, Certifications, etc."></textarea>
+        <small id="resumeWordCount">0 words</small>
+      </div>
+
+      <button class="btn primary" id="saveResume">Save Resume</button>
+      <div class="toast" id="resumeToast">Resume saved ✓</div>
+    </section>
+
+    <!-- Cover Letter Tab -->
+    <section class="tab-panel" id="tab-cover">
+      <p class="hint">Navigate to a job posting, then click the button below to generate a tailored cover letter.</p>
+
+      <div class="field">
+        <label for="jobDescription">Job Description (auto-detected or paste)</label>
+        <textarea id="jobDescription" rows="6" placeholder="Paste the job description here, or it will be auto-detected from the page..."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="coverLetterExtra">Extra instructions (optional)</label>
+        <input type="text" id="coverLetterExtra" placeholder="e.g. Emphasise my Python experience">
+      </div>
+
+      <button class="btn primary" id="generateCover">⚡ Generate Cover Letter</button>
+
+      <div class="field" id="coverResultWrap" style="display:none">
+        <label>Generated Cover Letter</label>
+        <textarea id="coverResult" rows="12" readonly></textarea>
+        <div class="btn-row">
+          <button class="btn secondary" id="copyCover">📋 Copy</button>
+          <button class="btn secondary" id="editCover">✏️ Edit</button>
+        </div>
+      </div>
+
+      <div class="spinner" id="coverSpinner" style="display:none">
+        <div class="dot-pulse"></div>
+        <span>Generating with AI...</span>
+      </div>
+
+      <div class="toast" id="coverToast">Copied to clipboard ✓</div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      AutoApply v1.0 · Powered by OpenAI
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
