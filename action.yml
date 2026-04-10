@@ -1,0 +1,11 @@
+name: "Show Repo Info"
+description: "Simple Composite action for practice"
+
+runs:
+  using: "composite"
+  steps:
+    - name: print message
+      shell: bash
+      run: |
+        echo "hello from my custom action"
+        echo "Repo: ${{ github.repository }}"
