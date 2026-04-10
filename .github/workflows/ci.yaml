@@ -20,6 +20,6 @@ jobs:
         run: |
           echo "Actor: ${{ github.actor }}"
           echo "Event: ${{ github.event_name }}"
-          echo "Repository: ${{ github.repository }}"
+          echo "Repository: ${{ github.action_repository }}"
       - name: log
         run: ls -la
