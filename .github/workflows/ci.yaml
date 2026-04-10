@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v1.0
+        uses: nightmare14226/ai-autofill-job-applying-chrome-extension@v1.0
       
       - name: Show basic info
         run: |
